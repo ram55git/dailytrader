@@ -1,85 +1,85 @@
 # 📈 DailyTrader - Autonomous NSE Stock Trading System
 
-An automated paper trading system for NSE stocks that runs autonomously as a background service with an optional Streamlit dashboard for monitoring.
+An automated paper trading system for NSE stocks that runs autonomously on Railway.app with a Streamlit Cloud dashboard for monitoring.
 
 ## 🌟 Features
 
-- **Autonomous Trading**: Runs as a Windows Service, no manual intervention needed
+- **Fully Cloud-Based**: Runs 24/7 on Railway.app, no local hosting needed
 - **Cloud Database**: Uses Supabase PostgreSQL for reliable data storage
+- **Real-time Dashboard**: Streamlit Cloud for monitoring from anywhere
 - **Momentum Strategy**: Trades stocks with >5% price increase and 5x volume
 - **Risk Management**: 
   - Stop loss at -2%
   - Trailing stop at 10% from peak profit
-  - EOD exit at 3:15 PM
+  - EOD exit at 3:20 PM
 - **Entry Control**: Only enters after 9:20 AM when price > previous day high
-- **Monitoring Dashboard**: Optional Streamlit UI for real-time monitoring
 - **Historical Analysis**: View trades by date with P&L metrics
+- **Cost-Effective**: ~$5/month (first month FREE with Railway credit!)
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                  Supabase Cloud                      │
-│              (PostgreSQL Database)                   │
+│             Supabase PostgreSQL (FREE)               │
+│              - trades table                          │
+│              - daily_pnl table                       │
 └────────────────┬────────────────────────────────────┘
                  │
-                 │ (Both connect to same DB)
+                 │ (Both connect via environment vars)
                  │
       ┌──────────┴───────────┐
       │                      │
       ▼                      ▼
-┌─────────────┐      ┌──────────────┐
-│ Autonomous  │      │  Streamlit   │
-│ Trading Bot │      │  Dashboard   │
-│  (Service)  │      │  (Optional)  │
-└─────────────┘      └──────────────┘
+┌─────────────┐      ┌──────────────────┐
+│ Railway.app │      │ Streamlit Cloud  │
+│ ($5/month)  │      │    (FREE)        │
+│             │      │                  │
+│ autonomous_ │      │    app.py        │
+│ trader.py   │      │  - Monitor       │
+│             │      │  - Analytics     │
+│ Runs 24/7   │      │  - P&L           │
+└─────────────┘      └──────────────────┘
 ```
 
 ## 📁 Project Structure
 
 ```
 DailyTrader/
-├── config.py                  # Configuration loader
-├── trading_engine.py          # Core trading logic
-├── autonomous_trader.py       # Background service
-├── app.py                     # Streamlit dashboard
-├── service_installer.py       # Windows service installer
-├── .env.example              # Environment template
-├── .env                      # Your credentials (gitignored)
-├── requirements.txt          # Python dependencies
-├── DEPLOYMENT_GUIDE.md       # Detailed setup instructions
-├── setup.ps1                 # Quick setup script
-└── README.md                 # This file
+├── config.py                    # Configuration loader
+├── trading_engine.py            # Core trading logic & DB functions
+├── autonomous_trader.py         # Background trading bot
+├── app.py                       # Streamlit dashboard
+├── Procfile                     # Railway deployment config
+├── railway.json                 # Railway settings
+├── .env.example                 # Environment template
+├── requirements.txt             # Python dependencies
+├── RAILWAY_DEPLOYMENT_GUIDE.md  # Complete setup guide
+└── README.md                    # This file
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.8+
-- Supabase account (free tier works)
-- Windows OS (for service installation)
+- GitHub account (for deployment)
+- Railway.app account (sign up for $5 free credit)
+- Supabase account (free tier)
+- Git installed locally
 
-### Setup (5 minutes)
+### Deployment (30 minutes)
 
-1. **Clone/Download this repository**
+Follow the comprehensive guide: **[RAILWAY_DEPLOYMENT_GUIDE.md](RAILWAY_DEPLOYMENT_GUIDE.md)**
 
-2. **Run the setup script**:
-```powershell
-.\setup.ps1
-```
-
-3. **Follow the prompts** to:
-   - Create virtual environment
-   - Install dependencies
-   - Configure Supabase credentials
-   - Test connection
-
-For detailed instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+**Quick overview:**
+1. Create Supabase database → Get credentials
+2. Push code to GitHub
+3. Deploy to Railway.app → Set environment variables
+4. Deploy dashboard to Streamlit Cloud → Configure secrets
+5. Done! Monitor at `https://yourapp.streamlit.app`
 
 ## 🔧 Configuration
 
-Edit `.env` file with your Supabase credentials:
+### Environment Variables (Railway.app & Streamlit Cloud)
 
 ```env
 SUPABASE_HOST=db.xxxxx.supabase.co
@@ -94,30 +94,35 @@ PRICE_CHANGE_THRESHOLD=5.0
 VOLUME_RATIO_THRESHOLD=5.0
 ```
 
+**For Railway:** Set in Variables tab
+**For Streamlit:** Set in Secrets (TOML format)
+
 ## 📊 Usage
 
-### Run Autonomous Bot (Background Service)
+### Monitor Your Bot
 
+**Streamlit Dashboard** (Recommended)
+- Open: `https://yourapp.streamlit.app`
+- Features:
+  - Live positions monitoring
+  - P&L tracking (daily, weekly, monthly, yearly)
+  - Historical trades viewer with date filter
+  - Account summary with cumulative returns
+  - Real-time updates from Supabase
+
+**Railway Logs**
+```
+1. Go to railway.app
+2. Click your project
+3. Click "View Logs"
+4. See real-time bot activity
+```
+
+**Local Testing** (before deploying)
 ```powershell
-# Run manually for testing
+# Create .env file with Supabase credentials
 python autonomous_trader.py
-
-# Or install as Windows Service (see DEPLOYMENT_GUIDE.md)
-nssm install DailyTradingBot
-nssm start DailyTradingBot
 ```
-
-### Run Streamlit Dashboard
-
-```powershell
-streamlit run app.py
-```
-
-Dashboard features:
-- Live positions monitoring
-- P&L tracking (daily, weekly, monthly, yearly)
-- Historical trades viewer with date filter
-- Account summary with cumulative returns
 
 ## 🎯 Trading Logic
 
@@ -130,19 +135,21 @@ Dashboard features:
 ### Exit Conditions (ANY triggers exit)
 1. **Stop Loss**: -2% from entry
 2. **Trailing Stop**: 10% drawdown from peak profit
-3. **EOD Exit**: 3:15 PM (all positions closed)
+3. **EOD Exit**: 3:20 PM (all positions closed)
 
 ## 📅 Daily Schedule
 
-The autonomous bot follows this schedule:
+The autonomous bot follows this schedule (all times IST):
 
 | Time     | Action                           |
 |----------|----------------------------------|
 | 9:15 AM  | Generate watchlist from bhavcopy |
 | 9:20 AM+ | Start taking positions           |
 | Ongoing  | Monitor every 30 seconds         |
-| 3:15 PM  | Force close all positions        |
-| 3:20 PM  | Calculate & save daily P&L       |
+| 3:20 PM  | Force close all positions        |
+| 3:25 PM  | Calculate & save daily P&L       |
+
+Bot runs 24/7 on Railway but only trades during market hours (Mon-Fri, 9:15 AM - 3:30 PM IST)
 
 ## 🗄️ Database Schema
 
@@ -176,51 +183,78 @@ Get-Service DailyTradingBot
 
 ### Update Code
 ```powershell
-git pull
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt --upgrade
-nssm restart DailyTradingBot
+# Local changes
+git add .
+git commit -m "Update trading logic"
+git push
+
+# Railway automatically redeploys! 🚀
 ```
+
+### Monitor Costs
+- **Railway:** Check usage at railway.app/account
+- **Supabase:** Monitor storage in dashboard (500 MB free)
+- **Streamlit:** Completely free, no limits on community tier
+
+### View Performance
+- **Streamlit Dashboard:** Full analytics and charts
+- **Supabase Table Editor:** Raw data view
+- **Railway Metrics:** CPU/Memory usage
 
 ### Backup Database
 Supabase automatically backs up daily. Manual backup:
-- Supabase Dashboard → Database → Export
-
-### View Performance
-- Use Streamlit dashboard
-- Query Supabase directly via SQL Editor
-- Check daily_pnl table for historical performance
+- Supabase Dashboard → Database → Backups
+- Or export via SQL Editor
 
 ## 🔒 Security
 
-- ✅ Environment variables in `.env` (gitignored)
-- ✅ Supabase RLS (Row Level Security) enabled
-- ✅ No hardcoded credentials
-- ✅ Secure connection to PostgreSQL
+- ✅ Environment variables (Railway Variables & Streamlit Secrets)
+- ✅ No credentials in code or GitHub
+- ✅ Supabase connection encryption (SSL)
+- ✅ `.env` and credentials gitignored
 
 ## 🐛 Troubleshooting
 
 ### Bot not trading?
-1. Check logs: `Get-Content .\logs\trading_bot.log -Tail 50`
-2. Verify market hours (9:15 AM - 3:30 PM IST)
-3. Check watchlist generation succeeded
-4. Ensure Supabase connection works
+1. **Check Railway logs:** railway.app → Your Project → View Logs
+2. **Verify market hours:** 9:15 AM - 3:30 PM IST, Mon-Fri
+3. **Check environment variables:** Railway → Variables tab
+4. **Test database:** Supabase → Table Editor (should have trades)
 
-### Database errors?
-1. Verify `.env` credentials
-2. Test: `python trading_engine.py`
-3. Check Supabase project status
+### Database connection errors?
+1. **Verify credentials:** Railway Variables match Supabase exactly
+2. **Check Supabase status:** Dashboard should show "Healthy"
+3. **Port number:** Should be `5432` (number, not string)
+4. **Host format:** No `http://` prefix, just `db.xxx.supabase.co`
 
-### Service won't start?
-1. Check Windows Event Viewer
-2. Test manually: `python autonomous_trader.py`
-3. Verify paths in NSSM service config
+### Streamlit not updating?
+1. **Check secrets:** Streamlit Cloud → Settings → Secrets
+2. **Reboot app:** Settings → Reboot
+3. **Verify Supabase data:** Should have recent trades
+4. **Check logs:** Streamlit Cloud → Manage app → Logs
 
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed troubleshooting.
+### Railway deployment failed?
+1. **Check build logs:** Railway → Deployments → Click failed build
+2. **Verify Procfile:** Should contain `worker: python autonomous_trader.py`
+3. **Check requirements.txt:** All dependencies listed
+4. **Redeploy:** Settings → Redeploy
+
+See **[RAILWAY_DEPLOYMENT_GUIDE.md](RAILWAY_DEPLOYMENT_GUIDE.md)** for detailed troubleshooting.
+
+## 💰 Cost Summary
+
+| Service | Cost |
+|---------|------|
+| Railway.app | $5/month (1st month FREE) |
+| Supabase | FREE (500 MB) |
+| Streamlit Cloud | FREE (unlimited) |
+| **Total** | **$5/month** |
+
+**First month is FREE!** Railway gives you $5 credit on signup.
 
 ## 📚 Documentation
 
-- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions
+- **[RAILWAY_DEPLOYMENT_GUIDE.md](RAILWAY_DEPLOYMENT_GUIDE.md)** - Complete cloud deployment guide
 - **[.env.example](.env.example)** - Environment variables template
 - **Code comments** - Detailed inline documentation
 
