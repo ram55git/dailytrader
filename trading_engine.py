@@ -11,7 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 import nselib
 import psycopg2
-from psycopg2.extras import RealDictCursor
+#from psycopg2.extras import RealDictCursor
 from typing import Optional, Dict, List, Tuple
 
 # Load configuration
