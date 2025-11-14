@@ -8,7 +8,7 @@ import time
 import logging
 from datetime import datetime
 import pandas as pd
-from nsepython import *
+from nsepython import nse_eq_bhavcopy
 import nselib
 
 # Load configuration
@@ -18,7 +18,7 @@ from trading_engine import (
     now_ist, is_market_hours, is_market_open, last_two_trading_days,
     init_db, get_open_trades, open_positions_for_watchlist,
     update_positions_and_apply_exits, force_eod_exit,
-    calculate_and_save_daily_pnl, IST
+    calculate_and_save_daily_pnl
 )
 
 # Configure logging
