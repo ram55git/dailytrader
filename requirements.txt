@@ -7,7 +7,7 @@ python-dateutil==2.9.0.post0
 nsepython==2.97
 nsetools==1.0.11
 yfinance==0.2.43
-nselib==0.1.0
+nselib==1.9
 beautifulsoup4==4.12.3
 streamlit-autorefresh==1.0.1
 psycopg2-binary==2.9.9
