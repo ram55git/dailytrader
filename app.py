@@ -14,11 +14,13 @@ from streamlit_autorefresh import st_autorefresh
 import requests
 
 # Import shared trading engine functions for Supabase connectivity
+# NOTE: This is a READ-ONLY dashboard - no trading actions are performed here
+# All trading is done by autonomous_trader.py
 from trading_engine import (
-    get_db_connection, init_db, save_trade, update_trade,
-    get_open_trades, get_trades_by_date, save_daily_pnl,
+    get_db_connection, init_db,
+    get_open_trades, get_trades_by_date,
     get_pnl_history, get_cumulative_pnl, now_ist, is_market_hours,
-    is_market_open, get_current_price, calculate_and_save_daily_pnl
+    is_market_open, get_current_price
 )
 
 from nsetools import Nse
@@ -87,84 +89,26 @@ def is_market_open(now: datetime) -> bool:
 
 # get_current_price is imported from trading_engine.py
 
+# ============================================================================
+# READ-ONLY VIEWER FUNCTIONS
+# All trading actions are performed by autonomous_trader.py
+# ============================================================================
 
-def open_positions_for_watchlist(watchlist: pd.DataFrame, capital_per_trade: float = 10000.0) -> None:
-    """Open new positions from the watchlist if entry conditions are met.
-
-    Entry conditions:
-    1. Entry price must be GREATER than previous day's high
-    2. Time must be after 9:20 AM (no entries in first 5 minutes)
-    """
-    # Check time - no entries before 9:20 AM
-    now = now_ist()
-    entry_start_time = now.replace(hour=9, minute=20, second=0, microsecond=0)
-    
-    if now < entry_start_time:
-        # Too early to enter positions
-        return
-    
-    positions = st.session_state.positions
-    open_symbols = set()
-    try:
-        if not positions.empty and 'is_open' in positions.columns:
-            open_symbols = set(positions[positions['is_open'].astype(bool)]['SYMBOL'])
-    except Exception as e:
-        st.error(f"Error processing positions: {str(e)}")
-        open_symbols = set()
-
-    for _, row in watchlist.iterrows():
-        symbol = row["SYMBOL"]
-        if symbol in open_symbols:
-            continue
-
-        last_day_high = row.get(" HIGH_PRICE_last", row.get(" CLOSE_PRICE_last", 0))
-        entry_price = get_current_price(symbol)
-        
-        if np.isnan(entry_price) or entry_price <= 0.0:
-            continue
-
-        # Entry logic: entry price must be GREATER than previous day's high
-        if entry_price > last_day_high:
-            qty = max(1, int(capital_per_trade // entry_price))
-            new_pos = {
-                "SYMBOL": symbol,
-                "entry_price": entry_price,
-                "qty": qty,
-                "max_profit_pct": 0.0,
-                "is_open": True,
-                "exit_reason": "",
-                "entry_time": now_ist(),
-                "exit_time": None,
-                "exit_price": None,
-                "pnl_pct": 0.0,
-                "current_price": entry_price,
-                "pnl_abs": 0.0,
-            }
-            # Save trade to DB and capture id
-            try:
-                trade_id = save_trade(new_pos)
-            except Exception:
-                trade_id = None
-            if trade_id:
-                new_pos["id"] = trade_id
-            st.session_state.positions = pd.concat([st.session_state.positions, pd.DataFrame([new_pos])], ignore_index=True)
-
-
-def update_positions_and_apply_exits() -> None:
+def update_positions_display() -> None:
+    """Update position display with current prices and P&L (read-only)."""
     positions = st.session_state.positions
     if positions.empty:
         return
-    rows = []
-    any_position_closed = False
     
+    rows = []
     for _, pos in positions.iterrows():
-        # Get current price for all positions (open or closed)
+        # Get current price for display purposes only
         current_price = get_current_price(pos["SYMBOL"]) if pos["is_open"] else pos.get("exit_price")
         
         # Create a copy of the position dictionary
         pos_dict = pos.to_dict()
         
-        # Update current price and calculate PnL for all positions
+        # Update current price and calculate PnL for display
         pos_dict["current_price"] = current_price
         
         # For closed positions, maintain their exit price and PnL
@@ -174,19 +118,19 @@ def update_positions_and_apply_exits() -> None:
             rows.append(pos_dict)
             continue
         
-        # For open positions, calculate current PnL
+        # For open positions, calculate current PnL for display
         if np.isnan(current_price) or current_price <= 0:
             pos_dict["pnl_abs"] = 0.0
             pos_dict["pnl_pct"] = 0.0
             rows.append(pos_dict)
             continue
         
-        # Calculate PnL
+        # Calculate PnL for display
         pnl_abs = (current_price - pos["entry_price"]) * pos["qty"]
         pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"] * 100.0
-        max_profit_pct = max(pos["max_profit_pct"], pnl_pct)
+        max_profit_pct = pos.get("max_profit_pct", 0.0)
         
-        # Update position with current values
+        # Update position with current values (display only)
         pos_dict.update({
             "current_price": current_price,
             "pnl_abs": pnl_abs,
@@ -194,89 +138,15 @@ def update_positions_and_apply_exits() -> None:
             "max_profit_pct": max_profit_pct
         })
         
-        # Exit rules
-        position_was_open = True
-        if pnl_pct <= -2.0:
-            pos_dict.update({
-                "is_open": False,
-                "exit_reason": "StopLoss -2%",
-                "exit_time": now_ist(),
-                "exit_price": current_price
-            })
-            any_position_closed = True
-        elif max_profit_pct - pnl_pct >= 10.0 and max_profit_pct > 0.0:
-            pos_dict.update({
-                "is_open": False,
-                "exit_reason": "Trail 10% from peak",
-                "exit_time": now_ist(),
-                "exit_price": current_price
-            })
-            any_position_closed = True
-        
         rows.append(pos_dict)
-        
-        # If position was closed, update the database
-        if not pos_dict["is_open"] and position_was_open:
-            update_trade(pos_dict)
 
     st.session_state.positions = pd.DataFrame(rows)
-    
-    # Recalculate daily P&L if any position was closed
-    if any_position_closed:
-        calculate_and_save_daily_pnl(now_ist())
-    
-
-def force_eod_exit() -> None:
-	"""Close all open positions at end of day and update their exit info in the database."""
-	now = now_ist()
-	close_dt = now.replace(hour=MARKET_CLOSE_HOUR, minute=MARKET_CLOSE_MINUTE, second=0, microsecond=0)
-	if now >= close_dt:
-		positions = st.session_state.positions
-		rows = []
-		for _, pos in positions.iterrows():
-			if pos["is_open"]:
-				current_price = get_current_price(pos["SYMBOL"])
-				if np.isnan(current_price) or current_price <= 0:
-					current_price = pos.get("current_price", pos["entry_price"])
-				
-				pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"] * 100.0
-				position_pnl = (current_price - pos["entry_price"]) * pos["qty"]
-				
-				pos_dict = pos.to_dict()
-				pos_dict.update({
-					"is_open": False,
-					"exit_reason": "EOD Exit",
-					"exit_time": now,
-					"exit_price": current_price,
-					"pnl_pct": pnl_pct,
-					"pnl_abs": position_pnl,
-					"current_price": current_price
-				})
-				
-				# Update database with exit info
-				if "id" in pos_dict and pos_dict["id"]:
-					update_trade(pos_dict)
-				
-				rows.append(pos_dict)
-			else:
-				rows.append(pos.to_dict())
-		
-		st.session_state.positions = pd.DataFrame(rows)
-		
-		# Calculate and save total daily P&L from ALL closed positions today
-		calculate_and_save_daily_pnl(now)
-
-
-# All database functions are now imported from trading_engine.py
-# (init_db, save_trade, update_trade, get_open_trades, get_trades_by_date, 
-#  save_daily_pnl, calculate_and_save_daily_pnl, get_cumulative_pnl, get_pnl_history)
-
 
 	
 def main():
         
     init_db()
-    st.set_page_config(page_title="NSE Momentum Screener - Paper Trade", layout="wide")
+    st.set_page_config(page_title="NSE Momentum Screener - Monitoring Dashboard", layout="wide")
     ensure_session_state()
     
     # Auto-refresh only during market hours
@@ -286,8 +156,9 @@ def main():
         st.info("🕒 Market is closed. Auto-refresh is disabled outside market hours (9:15 AM - 3:30 PM IST).")
     
     
-    st.title("Day Trader (Paper Trading)")
-    st.caption("Filters stocks with >5% price increase and >=5x volume vs previous day, paper-trades intraday with SL and trailing exits.")
+    st.title("📊 Day Trader - Monitoring Dashboard")
+    st.caption("**READ-ONLY VIEWER** - Displaying trades executed by autonomous_trader.py on Railway.app")
+    st.info("ℹ️ This dashboard only displays data. All trading actions are performed by the autonomous bot running on Railway.", icon="ℹ️")
     
     now = now_ist()
     st.sidebar.subheader("Controls")
@@ -364,20 +235,19 @@ def main():
         
    
     
-    # Show entry status
+    # Show market status (read-only info)
     entry_start_time = now.replace(hour=9, minute=20, second=0, microsecond=0)
     if is_market_open(now):
         if now < entry_start_time:
             minutes_to_entry = int((entry_start_time - now).total_seconds() / 60)
-            st.warning(f"⏳ Entries will be allowed after 9:20 AM (in {minutes_to_entry} minute(s))")
+            st.info(f"ℹ️ Trading starts at 9:20 AM (in {minutes_to_entry} minute(s)) - Managed by autonomous_trader.py")
         else:
-            st.success("✅ Entry conditions active: Price must be > Previous Day's High")
-        open_positions_for_watchlist(st.session_state.watchlist, capital_per_trade=capital_per_trade)
+            st.info("ℹ️ Trading active - All trades managed by autonomous_trader.py")
     else:
-        st.info("Market is closed. No new positions will be opened.")
+        st.info("Market is closed. Trading resumes next market day.")
 
-    update_positions_and_apply_exits()
-    force_eod_exit()
+    # Update position display with current prices (read-only)
+    update_positions_display()
 
     # Display today's P&L prominently
     today_date = now.strftime("%Y-%m-%d")
