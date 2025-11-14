@@ -188,7 +188,7 @@ def main():
     )
     
     # Calculate and display current cash in hand
-    cumulative_pnl = get_cumulative_pnl()
+    cumulative_pnl = float(get_cumulative_pnl())
     current_cash = st.session_state.initial_margin + cumulative_pnl
     
     st.sidebar.subheader("Account Summary")
@@ -257,7 +257,7 @@ def main():
     cursor = conn.cursor()
     cursor.execute("SELECT total_pnl FROM daily_pnl WHERE date = %s", (today_date,))
     result = cursor.fetchone()
-    today_pnl = result[0] if result else 0.0
+    today_pnl = float(result[0]) if result else 0.0
     cursor.close()
     conn.close()
     
@@ -266,7 +266,7 @@ def main():
     if not st.session_state.positions.empty:
         open_positions = st.session_state.positions[st.session_state.positions['is_open'] == True]
         if not open_positions.empty:
-            unrealized_pnl = open_positions['pnl_abs'].sum()
+            unrealized_pnl = float(open_positions['pnl_abs'].sum())
     
     # Display P&L metrics
     col1, col2, col3, col4 = st.columns(4)
