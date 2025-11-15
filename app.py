@@ -1,17 +1,13 @@
-import nsetools
-from nsepython import *
 import pandas as pd
 from datetime import date
 import streamlit as st
 import pytz
 import numpy as np
-import streamlit.components.v1 as components
-from bs4 import BeautifulSoup
 from datetime import datetime, time, timedelta
-import nselib 
-import time
+import time as time_module
 from streamlit_autorefresh import st_autorefresh
-import requests
+from nsepython import get_bhavcopy as nse_get_bhavcopy
+import nselib
 
 # Import shared trading engine functions for Supabase connectivity
 # NOTE: This is a READ-ONLY dashboard - no trading actions are performed here
@@ -20,11 +16,8 @@ from trading_engine import (
     get_db_connection, init_db,
     get_open_trades, get_trades_by_date,
     get_pnl_history, get_cumulative_pnl, now_ist, is_market_hours,
-    is_market_open, get_current_price
+    is_market_open, get_current_price, last_two_trading_days
 )
-
-from nsetools import Nse
-nse_client = nsetools.Nse()
 
 # Use shared constants
 IST = pytz.timezone("Asia/Kolkata")
@@ -35,18 +28,8 @@ MARKET_CLOSE_MINUTE = 15
 REFRESH_SECONDS = 30  # Changed to seconds for more granular control
 
 
-def last_two_trading_days(start_date):
-    """
-    Finds the most recent previous trading day.
-    """
-    holiday_data = pd.DataFrame(nselib.trading_holiday_calendar())
-    fil_holiday_data = holiday_data[holiday_data['Product'] == 'Equities']
-    holidays_set = set(pd.to_datetime(fil_holiday_data['tradingDate'], format='%d-%b-%Y').dt.date)
-
-    current_date = start_date - timedelta(days=1)
-    while current_date.weekday() >= 5 or current_date in holidays_set:
-        current_date -= timedelta(days=1)
-    return current_date
+# Use shared constants from trading_engine
+# last_two_trading_days is imported from trading_engine
 
 # Find the two most recent trading days
     
@@ -207,9 +190,9 @@ def main():
     
     # Load bhavcopy data
     with st.spinner("Loading previous day bhavcopy..."):
-        data_prev = pd.DataFrame(get_bhavcopy(trade_date_previous.strftime('%d-%m-%Y')))
+        data_prev = pd.DataFrame(nse_get_bhavcopy(trade_date_previous.strftime('%d-%m-%Y')))
     with st.spinner("Loading last day bhavcopy..."):
-        data_last = pd.DataFrame(get_bhavcopy(trade_date_last.strftime('%d-%m-%Y')))
+        data_last = pd.DataFrame(nse_get_bhavcopy(trade_date_last.strftime('%d-%m-%Y')))
     data_merged = pd.merge(data_last, data_prev, on='SYMBOL', suffixes=('_last', '_previous'))
    
     data_merged = data_merged.dropna(subset=[' CLOSE_PRICE_last', ' CLOSE_PRICE_previous', ' TTL_TRD_QNTY_last', ' TTL_TRD_QNTY_previous'])
