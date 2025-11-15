@@ -8,7 +8,7 @@ import time
 import logging
 from datetime import datetime
 import pandas as pd
-from nsepython import nse_eq_bhavcopy
+from nsepython import get_bhavcopy as nse_get_bhavcopy
 import nselib
 
 # Load configuration
@@ -37,7 +37,7 @@ def get_bhavcopy(trade_date_str: str):
     """Fetch bhavcopy data for a given date"""
     try:
         logger.info(f"Fetching bhavcopy for {trade_date_str}")
-        data = nse_eq_bhavcopy(trade_date_str)
+        data = nse_get_bhavcopy(trade_date_str)
         return data
     except Exception as e:
         logger.error(f"Error fetching bhavcopy: {e}")
