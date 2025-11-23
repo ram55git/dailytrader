@@ -67,7 +67,8 @@ def generate_watchlist() -> pd.DataFrame:
     
     data_merged = pd.merge(data_last, data_prev, on='SYMBOL', suffixes=('_last', '_previous'))
     data_merged = data_merged.dropna(subset=[' CLOSE_PRICE_last', ' CLOSE_PRICE_previous', 
-                                             ' TTL_TRD_QNTY_last', ' TTL_TRD_QNTY_previous'])
+                                             ' TTL_TRD_QNTY_last', ' TTL_TRD_QNTY_previous',
+                                             ' OPEN_PRICE_last'])
     
     # Calculate metrics
     data_merged["price_change_pct"] = (
@@ -79,9 +80,13 @@ def generate_watchlist() -> pd.DataFrame:
     )
     
     # Filter based on criteria
+    # 1. Price change >= Threshold
+    # 2. Volume ratio >= Threshold
+    # 3. Bullish candle: Close > Open
     filtered = data_merged[
         (data_merged["price_change_pct"] >= PRICE_CHANGE_THRESHOLD) &
-        (data_merged["volume_ratio"] >= VOLUME_RATIO_THRESHOLD)
+        (data_merged["volume_ratio"] >= VOLUME_RATIO_THRESHOLD) &
+        (data_merged[" CLOSE_PRICE_last"] > data_merged[" OPEN_PRICE_last"])
     ]
     
     # Select required columns
@@ -131,7 +136,9 @@ class TradingBot:
         """Main trading loop - runs every 30 seconds during market hours"""
         now = now_ist()
         
-        if not is_market_open(now):
+        # Use is_market_hours (up to 3:30 PM) instead of is_market_open (up to 3:15 PM)
+        # This ensures we keep running to trigger the 3:15 PM EOD exit
+        if not is_market_hours():
             logger.debug("Market is closed, skipping monitoring")
             return
         
