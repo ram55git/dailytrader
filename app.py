@@ -200,10 +200,16 @@ def main():
     
     data_merged["price_change_pct"] = (data_merged[" CLOSE_PRICE_last"] - data_merged[" CLOSE_PRICE_previous"]) / data_merged[" CLOSE_PRICE_previous"] * 100.0
     data_merged["volume_ratio"] = data_merged[" TTL_TRD_QNTY_last"] / data_merged[" TTL_TRD_QNTY_previous"]
-    data_merged["fract_close"]= (data_merged[" HIGH_PRICE_last"] - data_merged[" CLOSE_PRICE_last"])/(data_merged[" HIGH_PRICE_last"] - data_merged[" LOW_PRICE_last"])
-    data_merged["fract_body"]= abs((data_merged[" CLOSE_PRICE_last"] - data_merged[" OPEN_PRICE_last"]))/(data_merged[" HIGH_PRICE_last"] - data_merged[" LOW_PRICE_last"])
     
-    data_filtered = data_merged[(data_merged["price_change_pct"] > 5.0) & (data_merged["volume_ratio"] >= 5.0)& (data_merged["fract_close"]<0.3)& (data_merged["fract_body"]>0.7)]
+    # Filter based on criteria:
+    # 1. Price change > 5%
+    # 2. Volume ratio >= 5x
+    # 3. Bullish candle (Close > Open)
+    data_filtered = data_merged[
+        (data_merged["price_change_pct"] > 5.0) & 
+        (data_merged["volume_ratio"] >= 5.0) & 
+        (data_merged[" CLOSE_PRICE_last"] > data_merged[" OPEN_PRICE_last"])
+    ]
     
     #st.write(data_filtered[['SYMBOL', ' CLOSE_PRICE_last', ' TTL_TRD_QNTY_last', ' CLOSE_PRICE_previous', ' TTL_TRD_QNTY_previous', 'price_change_pct', 'volume_ratio']])
     
