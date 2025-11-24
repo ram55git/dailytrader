@@ -355,6 +355,7 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
     Entry conditions:
     1. Entry price must be > 1.01 * Previous Day's Close (1% higher)
     2. Time must be after 9:20 AM (no entries in first 5 minutes)
+    3. Time must be before 3:15 PM (no new entries near close)
     
     Returns:
         Tuple of (updated positions DataFrame, list of messages)
@@ -364,8 +365,14 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
     
     # Check time - no entries before 9:20 AM
     entry_time = now.replace(hour=9, minute=20, second=0, microsecond=0)
+    exit_cutoff_time = now.replace(hour=15, minute=15, second=0, microsecond=0)
+    
     if now < entry_time:
         messages.append(f"⏰ Waiting for 9:20 AM to start entries (Current: {now.strftime('%H:%M:%S')})")
+        return positions, messages
+        
+    if now >= exit_cutoff_time:
+        messages.append(f"⏰ Market closing soon (3:15 PM), no new entries allowed.")
         return positions, messages
     
     for _, row in watchlist.iterrows():
@@ -373,8 +380,15 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
         last_day_close = row.get("CLOSE_PRICE_last", 0)
         target_entry_price = last_day_close * 1.01
         
-        # Skip if already in positions
+        # Skip if already in positions (Open positions)
         if not positions.empty and symbol in positions["SYMBOL"].values:
+            continue
+            
+        # Check if we already traded this symbol today (Closed positions)
+        # This prevents re-entry after exit
+        today_str = now.strftime("%Y-%m-%d")
+        closed_trades = get_trades_by_date(today_str)
+        if not closed_trades.empty and symbol in closed_trades["SYMBOL"].values:
             continue
         
         entry_price = get_current_price(symbol)
