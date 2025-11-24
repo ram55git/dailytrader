@@ -110,10 +110,79 @@ def init_db():
         )
     """)
     
+    # Create watchlist table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS watchlist (
+            symbol VARCHAR(50) PRIMARY KEY,
+            price_change_pct DECIMAL(10, 2),
+            volume_ratio DECIMAL(10, 2),
+            high_price_last DECIMAL(10, 2),
+            close_price_last DECIMAL(10, 2),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
     conn.commit()
     cursor.close()
     conn.close()
     print("Database initialized successfully")
+
+
+def clear_watchlist():
+    """Clear the watchlist table"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM watchlist")
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def save_watchlist(watchlist_df: pd.DataFrame):
+    """Save watchlist to database"""
+    if watchlist_df.empty:
+        return
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Clear existing watchlist first
+    cursor.execute("DELETE FROM watchlist")
+    
+    for _, row in watchlist_df.iterrows():
+        cursor.execute("""
+            INSERT INTO watchlist (symbol, price_change_pct, volume_ratio, high_price_last, close_price_last)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            row["SYMBOL"],
+            row["price_change_pct"],
+            row["volume_ratio"],
+            row["HIGH_PRICE_last"],
+            row["CLOSE_PRICE_last"]
+        ))
+        
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def get_watchlist_from_db() -> pd.DataFrame:
+    """Retrieve watchlist from database"""
+    conn = get_db_connection()
+    
+    query = """
+        SELECT 
+            symbol as "SYMBOL",
+            price_change_pct,
+            volume_ratio,
+            high_price_last as "HIGH_PRICE_last",
+            close_price_last as "CLOSE_PRICE_last"
+        FROM watchlist
+    """
+    
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
 
 
 def save_trade(trade: dict) -> Optional[int]:

@@ -16,7 +16,8 @@ from trading_engine import (
     get_db_connection, init_db,
     get_open_trades, get_trades_by_date,
     get_pnl_history, get_cumulative_pnl, now_ist, is_market_hours,
-    is_market_open, get_current_price, last_two_trading_days
+    is_market_open, get_current_price, last_two_trading_days,
+    get_watchlist_from_db
 )
 
 # Use shared constants
@@ -126,6 +127,27 @@ def update_positions_display() -> None:
     st.session_state.positions = pd.DataFrame(rows)
 
 	
+# ============================================================================
+# CACHED DATA FUNCTIONS
+# ============================================================================
+
+def get_daily_watchlist_display():
+    """
+    Fetch watchlist from database (populated by autonomous_trader.py)
+    """
+    try:
+        watchlist = get_watchlist_from_db()
+        
+        # Calculate dates for display only
+        trade_date_last = last_two_trading_days(datetime.now().date())
+        trade_date_previous = last_two_trading_days(trade_date_last)
+        
+        return watchlist, trade_date_last, trade_date_previous
+    except Exception as e:
+        st.error(f"Error fetching watchlist from DB: {e}")
+        return pd.DataFrame(), None, None
+
+
 def main():
         
     init_db()
@@ -181,38 +203,12 @@ def main():
     
     # Removed the refresh slider as we're using a fixed 30-second refresh
  
- 
-    trade_date_last = last_two_trading_days(datetime.now().date())
-    trade_date_previous = last_two_trading_days(trade_date_last)
-    
+    # Get cached watchlist
+    today_str = now.strftime("%Y-%m-%d")
+    with st.spinner("Checking watchlist..."):
+        data_filtered, trade_date_last, trade_date_previous = get_daily_watchlist_display()
     
     st.write(f"Prev day: {trade_date_previous} | Last day: {trade_date_last} | Now: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    
-    # Load bhavcopy data
-    with st.spinner("Loading previous day bhavcopy..."):
-        data_prev = pd.DataFrame(nse_get_bhavcopy(trade_date_previous.strftime('%d-%m-%Y')))
-    with st.spinner("Loading last day bhavcopy..."):
-        data_last = pd.DataFrame(nse_get_bhavcopy(trade_date_last.strftime('%d-%m-%Y')))
-    data_merged = pd.merge(data_last, data_prev, on='SYMBOL', suffixes=('_last', '_previous'))
-   
-    data_merged = data_merged.dropna(subset=[' CLOSE_PRICE_last', ' CLOSE_PRICE_previous', ' TTL_TRD_QNTY_last', ' TTL_TRD_QNTY_previous'])
-    
-    
-    data_merged["price_change_pct"] = (data_merged[" CLOSE_PRICE_last"] - data_merged[" CLOSE_PRICE_previous"]) / data_merged[" CLOSE_PRICE_previous"] * 100.0
-    data_merged["volume_ratio"] = data_merged[" TTL_TRD_QNTY_last"] / data_merged[" TTL_TRD_QNTY_previous"]
-    
-    # Filter based on criteria:
-    # 1. Price change > 5%
-    # 2. Volume ratio >= 5x
-    # 3. Bullish candle (Close > Open)
-    data_filtered = data_merged[
-        (data_merged["price_change_pct"] > 5.0) & 
-        (data_merged["volume_ratio"] >= 5.0) & 
-        (data_merged[" CLOSE_PRICE_last"] > data_merged[" OPEN_PRICE_last"])
-    ]
-    
-    #st.write(data_filtered[['SYMBOL', ' CLOSE_PRICE_last', ' TTL_TRD_QNTY_last', ' CLOSE_PRICE_previous', ' TTL_TRD_QNTY_previous', 'price_change_pct', 'volume_ratio']])
-    
     
     if not data_filtered.empty:
         st.subheader("Filtered candidates")
