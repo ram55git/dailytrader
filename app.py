@@ -212,9 +212,10 @@ def main():
     
     if not data_filtered.empty:
         st.subheader("Filtered candidates")
-        st.dataframe(data_filtered[['SYMBOL', ' CLOSE_PRICE_last', ' TTL_TRD_QNTY_last', ' CLOSE_PRICE_previous', ' TTL_TRD_QNTY_previous', 'price_change_pct', 'volume_ratio']])
-        #st.dataframe(data_filtered, use_container_width=True)
-        st.session_state.watchlist = data_filtered[["SYMBOL"," CLOSE_PRICE_last"," HIGH_PRICE_last"]].copy()
+        # Display available columns from database
+        st.dataframe(data_filtered[['SYMBOL', 'CLOSE_PRICE_last', 'HIGH_PRICE_last', 'price_change_pct', 'volume_ratio']])
+        
+        st.session_state.watchlist = data_filtered[["SYMBOL", "CLOSE_PRICE_last", "HIGH_PRICE_last"]].copy()
     else:
         st.info("No candidates met the criteria today.")
         
