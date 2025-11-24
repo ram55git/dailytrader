@@ -166,7 +166,7 @@ def main():
     st.sidebar.subheader("Entry Rules")
     st.sidebar.info(
         "✓ Time: After 9:20 AM only\n\n"
-        "✓ Price: Entry > Prev Day High\n\n"
+        "✓ Price: Entry > 1.01 * Prev Close\n\n"
         "(No entries in first 5 mins)"
     )
     

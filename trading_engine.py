@@ -284,7 +284,7 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
     Open new positions from the watchlist if entry conditions are met.
     
     Entry conditions:
-    1. Entry price must be GREATER than previous day's high
+    1. Entry price must be > 1.01 * Previous Day's Close (1% higher)
     2. Time must be after 9:20 AM (no entries in first 5 minutes)
     
     Returns:
@@ -301,7 +301,8 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
     
     for _, row in watchlist.iterrows():
         symbol = row["SYMBOL"]
-        last_day_high = row.get("HIGH_PRICE_last", 0)
+        last_day_close = row.get("CLOSE_PRICE_last", 0)
+        target_entry_price = last_day_close * 1.01
         
         # Skip if already in positions
         if not positions.empty and symbol in positions["SYMBOL"].values:
@@ -312,8 +313,8 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
         if np.isnan(entry_price) or entry_price <= 0.0:
             continue
         
-        # Entry logic: entry price must be GREATER than previous day's high
-        if entry_price > last_day_high:
+        # Entry logic: entry price > 1.01 * last day's close price
+        if entry_price > target_entry_price:
             qty = max(1, int(capital_per_trade // entry_price))
             new_pos = {
                 "SYMBOL": symbol,
