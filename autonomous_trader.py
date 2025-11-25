@@ -18,7 +18,8 @@ from trading_engine import (
     now_ist, is_market_hours, is_market_open, last_two_trading_days,
     init_db, get_open_trades, open_positions_for_watchlist,
     update_positions_and_apply_exits, force_eod_exit,
-    calculate_and_save_daily_pnl, save_watchlist
+    calculate_and_save_daily_pnl, save_watchlist,
+    get_watchlist_from_db, get_watchlist_date
 )
 
 # Configure logging
@@ -120,14 +121,35 @@ class TradingBot:
             logger.error(f"Error initializing bot: {e}")
             raise
     
-    def generate_daily_watchlist(self):
-        """Generate watchlist at market open (9:15 AM)"""
-        today = datetime.now().date()
+    def ensure_daily_watchlist(self):
+        """
+        Ensure watchlist exists for today.
+        1. Check if already in memory.
+        2. Check if exists in DB (from previous run/crash recovery).
+        3. Only generate new if missing from both.
+        """
+        today = now_ist().date()
+        
+        # 1. Check memory cache
         if self.last_generation_date == today:
             logger.info(f"Watchlist already generated for today ({today})")
             return
+            
+        # 2. Check database cache (handle restarts/crashes)
+        # This ensures we don't regenerate if the bot restarts
+        db_date = get_watchlist_date()
+        if db_date == today:
+            logger.info(f"Found existing watchlist in DB for today ({today}). Loading from DB...")
+            try:
+                self.watchlist = get_watchlist_from_db()
+                self.last_generation_date = today
+                logger.info(f"✅ Loaded {len(self.watchlist)} stocks from DB (No regeneration needed)")
+                return
+            except Exception as e:
+                logger.error(f"Error loading from DB, will regenerate: {e}")
         
-        logger.info("🔍 Generating daily watchlist...")
+        # 3. Generate new (Only if not in DB)
+        logger.info("🔍 DB is empty/outdated. Generating daily watchlist...")
         try:
             self.watchlist = generate_watchlist()
             
@@ -207,6 +229,19 @@ class TradingBot:
         except Exception as e:
             logger.error(f"❌ Error in EOD tasks: {e}", exc_info=True)
     
+    def check_schedule(self):
+        """Check time and run scheduled tasks based on IST"""
+        now = now_ist()
+        
+        # 9:15 AM - Generate Watchlist
+        # We check a range to ensure we don't miss it if the loop is slightly delayed
+        if now.hour == 9 and 15 <= now.minute <= 16:
+            self.ensure_daily_watchlist()
+            
+        # 3:20 PM - EOD Tasks
+        if now.hour == 15 and 20 <= now.minute <= 21:
+            self.end_of_day_tasks()
+
     def start(self):
         """Start the autonomous trading bot"""
         logger.info("🚀 Starting Autonomous Trading Bot...")
@@ -217,17 +252,20 @@ class TradingBot:
         # ALWAYS check/generate watchlist on startup
         # This ensures DB is populated even if bot is restarted or started late
         logger.info("Bot started, checking watchlist status...")
-        self.generate_daily_watchlist()
+        self.ensure_daily_watchlist()
         
         # Schedule tasks
-        schedule.every().day.at("09:15").do(self.generate_daily_watchlist)
+        # We run a time checker every minute to handle Timezone differences (Server UTC vs Market IST)
+        schedule.every(1).minutes.do(self.check_schedule)
+        
+        # Monitor trades every 30 seconds
         schedule.every(30).seconds.do(self.monitor_and_trade)
-        schedule.every().day.at("15:20").do(self.end_of_day_tasks)
         
         logger.info("📅 Scheduled tasks:")
-        logger.info("  - Generate watchlist: Daily at 9:15 AM")
+        logger.info("  - Time Check (IST): Every minute")
+        logger.info("    -> Generate watchlist: 9:15 AM IST")
+        logger.info("    -> EOD tasks: 3:20 PM IST")
         logger.info("  - Monitor & trade: Every 30 seconds")
-        logger.info("  - EOD tasks: Daily at 3:20 PM")
         
         # Main loop
         try:

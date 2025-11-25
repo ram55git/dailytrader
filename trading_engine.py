@@ -168,6 +168,25 @@ def save_watchlist(watchlist_df: pd.DataFrame):
     conn.close()
 
 
+def get_watchlist_date():
+    """Get the creation date of the current watchlist"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT created_at FROM watchlist LIMIT 1")
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if row and row[0]:
+            # Return the date part of the timestamp
+            return row[0].date()
+        return None
+    except Exception as e:
+        print(f"Error checking watchlist date: {e}")
+        return None
+
+
 def get_watchlist_from_db() -> pd.DataFrame:
     """Retrieve watchlist from database"""
     conn = get_db_connection()

@@ -14,8 +14,7 @@ from config import DB_CONFIG
 # NOTE: This is a READ-ONLY dashboard - no trading actions are performed here
 # All trading is done by autonomous_trader.py
 from trading_engine import (
-    get_db_connection, init_db,
-    get_open_trades, get_trades_by_date,
+    get_db_connection, get_open_trades, get_trades_by_date,
     get_pnl_history, get_cumulative_pnl, now_ist, is_market_hours,
     is_market_open, get_current_price, last_two_trading_days,
     get_watchlist_from_db
