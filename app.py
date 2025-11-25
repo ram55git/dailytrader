@@ -213,7 +213,7 @@ def main():
     if not data_filtered.empty:
         st.subheader("Filtered candidates")
         # Display available columns from database
-        st.dataframe(data_filtered[['SYMBOL', 'CLOSE_PRICE_last', 'HIGH_PRICE_last', 'price_change_pct', 'volume_ratio']])
+        st.dataframe(data_filtered[['SYMBOL', 'CLOSE_PRICE_last', 'CLOSE_PRICE_previous', 'price_change_pct', 'volume_ratio']])
         
         st.session_state.watchlist = data_filtered[["SYMBOL", "CLOSE_PRICE_last", "HIGH_PRICE_last"]].copy()
     else:

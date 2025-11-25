@@ -90,8 +90,12 @@ def generate_watchlist() -> pd.DataFrame:
     ]
     
     # Select required columns
-    watchlist = filtered[["SYMBOL", "price_change_pct", "volume_ratio", " HIGH_PRICE_last", " CLOSE_PRICE_last"]].copy()
-    watchlist = watchlist.rename(columns={" HIGH_PRICE_last": "HIGH_PRICE_last", " CLOSE_PRICE_last": "CLOSE_PRICE_last"})
+    watchlist = filtered[["SYMBOL", "price_change_pct", "volume_ratio", " HIGH_PRICE_last", " CLOSE_PRICE_last", " CLOSE_PRICE_previous"]].copy()
+    watchlist = watchlist.rename(columns={
+        " HIGH_PRICE_last": "HIGH_PRICE_last", 
+        " CLOSE_PRICE_last": "CLOSE_PRICE_last",
+        " CLOSE_PRICE_previous": "CLOSE_PRICE_previous"
+    })
     watchlist = watchlist.sort_values("price_change_pct", ascending=False)
     
     logger.info(f"Watchlist generated with {len(watchlist)} stocks")

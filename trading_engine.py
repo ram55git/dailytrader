@@ -110,6 +110,9 @@ def init_db():
         )
     """)
     
+    # Drop watchlist table to ensure schema update (since it's transient data)
+    cursor.execute("DROP TABLE IF EXISTS watchlist")
+    
     # Create watchlist table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS watchlist (
@@ -118,6 +121,7 @@ def init_db():
             volume_ratio DECIMAL(10, 2),
             high_price_last DECIMAL(10, 2),
             close_price_last DECIMAL(10, 2),
+            close_price_previous DECIMAL(10, 2),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -151,14 +155,15 @@ def save_watchlist(watchlist_df: pd.DataFrame):
     
     for _, row in watchlist_df.iterrows():
         cursor.execute("""
-            INSERT INTO watchlist (symbol, price_change_pct, volume_ratio, high_price_last, close_price_last)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO watchlist (symbol, price_change_pct, volume_ratio, high_price_last, close_price_last, close_price_previous)
+            VALUES (%s, %s, %s, %s, %s, %s)
         """, (
             row["SYMBOL"],
             row["price_change_pct"],
             row["volume_ratio"],
             row["HIGH_PRICE_last"],
-            row["CLOSE_PRICE_last"]
+            row["CLOSE_PRICE_last"],
+            row["CLOSE_PRICE_previous"]
         ))
         
     conn.commit()
@@ -176,7 +181,8 @@ def get_watchlist_from_db() -> pd.DataFrame:
             price_change_pct,
             volume_ratio,
             high_price_last as "HIGH_PRICE_last",
-            close_price_last as "CLOSE_PRICE_last"
+            close_price_last as "CLOSE_PRICE_last",
+            close_price_previous as "CLOSE_PRICE_previous"
         FROM watchlist
     """
     
