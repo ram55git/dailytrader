@@ -107,7 +107,7 @@ class TradingBot:
         self.positions = pd.DataFrame()
         self.watchlist = pd.DataFrame()
         self.is_running = False
-        self.watchlist_generated = False
+        self.last_generation_date = None
         
     def initialize(self):
         """Initialize the bot and database"""
@@ -122,8 +122,9 @@ class TradingBot:
     
     def generate_daily_watchlist(self):
         """Generate watchlist at market open (9:15 AM)"""
-        if self.watchlist_generated:
-            logger.info("Watchlist already generated today")
+        today = datetime.now().date()
+        if self.last_generation_date == today:
+            logger.info(f"Watchlist already generated for today ({today})")
             return
         
         logger.info("🔍 Generating daily watchlist...")
@@ -134,7 +135,7 @@ class TradingBot:
             save_watchlist(self.watchlist)
             logger.info("💾 Watchlist saved to database")
             
-            self.watchlist_generated = True
+            self.last_generation_date = today
             logger.info(f"✅ Watchlist generated: {len(self.watchlist)} stocks")
             if not self.watchlist.empty:
                 logger.info(f"Top stocks: {self.watchlist['SYMBOL'].head(5).tolist()}")
@@ -200,8 +201,8 @@ class TradingBot:
             total_pnl = calculate_and_save_daily_pnl()
             logger.info(f"💰 Daily P&L saved: ₹{total_pnl:.2f}")
             
-            # Reset watchlist for next day
-            self.watchlist_generated = False
+            # Reset watchlist for next day (not strictly necessary with date check, but good for cleanup)
+            # self.last_generation_date will be updated when generate_daily_watchlist runs tomorrow
             
         except Exception as e:
             logger.error(f"❌ Error in EOD tasks: {e}", exc_info=True)
@@ -213,10 +214,10 @@ class TradingBot:
         self.initialize()
         self.is_running = True
         
-        # Check if we missed the morning generation (e.g. restarted during day)
-        if is_market_hours() and not self.watchlist_generated:
-             logger.info("Bot started during market hours, generating watchlist immediately...")
-             self.generate_daily_watchlist()
+        # ALWAYS check/generate watchlist on startup
+        # This ensures DB is populated even if bot is restarted or started late
+        logger.info("Bot started, checking watchlist status...")
+        self.generate_daily_watchlist()
         
         # Schedule tasks
         schedule.every().day.at("09:15").do(self.generate_daily_watchlist)
