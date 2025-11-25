@@ -8,6 +8,7 @@ import time as time_module
 from streamlit_autorefresh import st_autorefresh
 from nsepython import get_bhavcopy as nse_get_bhavcopy
 import nselib
+from config import DB_CONFIG
 
 # Import shared trading engine functions for Supabase connectivity
 # NOTE: This is a READ-ONLY dashboard - no trading actions are performed here
@@ -149,8 +150,8 @@ def get_daily_watchlist_display():
 
 
 def main():
-        
-    init_db()
+    
+    # init_db() - Removed to prevent potential interference, DB should be initialized by autonomous_trader.py or manually
     st.set_page_config(page_title="NSE Momentum Screener - Monitoring Dashboard", layout="wide")
     ensure_session_state()
     
@@ -205,8 +206,13 @@ def main():
  
     # Get cached watchlist
     today_str = now.strftime("%Y-%m-%d")
+    
     with st.spinner("Checking watchlist..."):
         data_filtered, trade_date_last, trade_date_previous = get_daily_watchlist_display()
+        if not data_filtered.empty:
+            st.toast(f"Loaded {len(data_filtered)} candidates from DB", icon="✅")
+        else:
+            st.toast("No candidates found in DB", icon="⚠️")
     
     st.write(f"Prev day: {trade_date_previous} | Last day: {trade_date_last} | Now: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
     

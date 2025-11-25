@@ -110,9 +110,6 @@ def init_db():
         )
     """)
     
-    # Drop watchlist table to ensure schema update (since it's transient data)
-    cursor.execute("DROP TABLE IF EXISTS watchlist")
-    
     # Create watchlist table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS watchlist (
