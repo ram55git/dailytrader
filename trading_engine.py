@@ -400,26 +400,27 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
     for _, row in watchlist.iterrows():
         symbol = row["SYMBOL"]
         last_day_close = row.get("CLOSE_PRICE_last", 0)
-        target_entry_price = last_day_close * 1.01
-        
+        lower_bound = last_day_close * 1.01
+        upper_bound = last_day_close * 1.03
+
         # Skip if already in positions (Open positions)
         if not positions.empty and symbol in positions["SYMBOL"].values:
             continue
-            
+
         # Check if we already traded this symbol today (Closed positions)
         # This prevents re-entry after exit
         today_str = now.strftime("%Y-%m-%d")
         closed_trades = get_trades_by_date(today_str)
         if not closed_trades.empty and symbol in closed_trades["SYMBOL"].values:
             continue
-        
+
         entry_price = get_current_price(symbol)
-        
+
         if np.isnan(entry_price) or entry_price <= 0.0:
             continue
-        
-        # Entry logic: entry price > 1.01 * last day's close price
-        if entry_price > target_entry_price:
+
+        # Entry logic: entry price > last day's close and < 1.03 * last day's close
+        if entry_price > lower_bound and entry_price < upper_bound:
             qty = max(1, int(capital_per_trade // entry_price))
             new_pos = {
                 "SYMBOL": symbol,
@@ -435,7 +436,7 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
                 "current_price": entry_price,
                 "pnl_abs": 0.0,
             }
-            
+
             try:
                 trade_id = save_trade(new_pos)
                 if trade_id:
@@ -494,7 +495,7 @@ def update_positions_and_apply_exits(positions: pd.DataFrame) -> Tuple[pd.DataFr
                 messages.append(f"🛑 Stop Loss: {pos['SYMBOL']} @ ₹{current_price:.2f}, P&L: {pnl_pct:.2f}%")
             
             # Exit condition 2: Trailing stop - if profit drops 10% from peak
-            elif max_profit_pct > 0 and (max_profit_pct - pnl_pct >= 10.0):
+            elif max_profit_pct > 0 and (max_profit_pct - pnl_pct >= 2.0):
                 pos_dict.update({
                     "is_open": False,
                     "exit_reason": "Trail 10% from peak",
