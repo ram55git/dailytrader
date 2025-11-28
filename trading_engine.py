@@ -14,7 +14,7 @@ import psycopg2
 #from psycopg2.extras import RealDictCursor
 from typing import Optional, Dict, List, Tuple
 import yfinance as yf
-
+import logging
 # Load configuration
 from config import DB_CONFIG, validate_config
 
@@ -72,6 +72,8 @@ def get_current_price(symbol: str) -> float:
         if ltp is not None and ltp != 0:
             return float(ltp)
     except Exception:
+        logging.basicConfig(level=logging.WARNING)
+        logging.warning(f"Error fetching price for {symbol}")
         pass  # Continue to next attempt
     
     # Second attempt: yfinance with -SM suffix
@@ -81,6 +83,8 @@ def get_current_price(symbol: str) -> float:
         if ltp is not None and ltp != 0:
             return float(ltp)
     except Exception:
+        logging.basicConfig(level=logging.WARNING)
+        logging.warning(f"Error fetching price for {symbol}")
         pass  # Continue to fallback
     
     # Fallback: scrape Google Finance
@@ -93,7 +97,8 @@ def get_current_price(symbol: str) -> float:
             price_text = price_element.text.strip()[1:].replace(",", "")
             return float(price_text)
     except Exception as e:
-        print(f"Error fetching price for {symbol}: {e}")
+        logging.basicConfig(level=logging.WARNING)
+        logging.warning(f"Error fetching price for {symbol}")
         return np.nan
         
 
