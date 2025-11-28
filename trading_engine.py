@@ -401,7 +401,7 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
         symbol = row["SYMBOL"]
         last_day_close = row.get("CLOSE_PRICE_last", 0)
         lower_bound = last_day_close * 1.01
-        upper_bound = last_day_close * 1.03
+        #upper_bound = last_day_close * 1.03
 
         # Skip if already in positions (Open positions)
         if not positions.empty and symbol in positions["SYMBOL"].values:
@@ -420,7 +420,7 @@ def open_positions_for_watchlist(watchlist: pd.DataFrame, positions: pd.DataFram
             continue
 
         # Entry logic: entry price > last day's close and < 1.03 * last day's close
-        if entry_price > lower_bound and entry_price < upper_bound:
+        if entry_price > lower_bound: # and entry_price < upper_bound:
             qty = max(1, int(capital_per_trade // entry_price))
             new_pos = {
                 "SYMBOL": symbol,
