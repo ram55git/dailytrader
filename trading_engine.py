@@ -13,6 +13,7 @@ import nselib
 import psycopg2
 #from psycopg2.extras import RealDictCursor
 from typing import Optional, Dict, List, Tuple
+import yfinance as yf
 
 # Load configuration
 from config import DB_CONFIG, validate_config
@@ -64,13 +65,37 @@ def last_two_trading_days(start_date):
 
 def get_current_price(symbol: str) -> float:
     """Fetch current price from Google Finance"""
+    # First attempt: yfinance with plain symbol
     try:
-        ltp = float((BeautifulSoup((requests.get(f'https://www.google.com/finance/quote/{symbol}:NSE')).text, 'html.parser')
-                    .find(class_="YMlKec fxKbKc").text.strip()[1:].replace(",", "")))
-        return ltp
+        stock = yf.Ticker(f"{symbol}-SM.NS")
+        ltp = stock.fast_info['last_price']
+        if ltp is not None and ltp != 0:
+            return float(ltp)
+    except Exception:
+        pass  # Continue to next attempt
+    
+    # Second attempt: yfinance with -SM suffix
+    try:
+        stock = yf.Ticker(f"{symbol}.NS")
+        ltp = stock.fast_info['last_price']
+        if ltp is not None and ltp != 0:
+            return float(ltp)
+    except Exception:
+        pass  # Continue to fallback
+    
+    # Fallback: scrape Google Finance
+    try:
+        url = f'https://www.google.com/finance/quote/{symbol}:NSE'
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        price_element = soup.find(class_="YMlKec fxKbKc")
+        if price_element:
+            price_text = price_element.text.strip()[1:].replace(",", "")
+            return float(price_text)
     except Exception as e:
         print(f"Error fetching price for {symbol}: {e}")
         return np.nan
+        
 
 
 # ============= DATABASE FUNCTIONS =============
