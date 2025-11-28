@@ -171,13 +171,13 @@ class TradingBot:
         # Stop monitoring after 3:25 PM (give 10 mins buffer after 3:15 exit)
         cutoff_time = now.replace(hour=15, minute=25, second=0, microsecond=0)
         if now > cutoff_time:
-            logger.info("🛑 Market closed (post 3:25 PM). Stopping monitoring.")
+            #logger.info("🛑 Market closed (post 3:25 PM). Stopping monitoring.")
             return
 
         # Use is_market_hours (up to 3:30 PM) instead of is_market_open (up to 3:15 PM)
         # This ensures we keep running to trigger the 3:15 PM EOD exit
         if not is_market_hours():
-            logger.debug("Market is closed, skipping monitoring")
+            #logger.debug("Market is closed, skipping monitoring")
             return
         
         logger.info("📊 Monitoring positions...")
