@@ -292,6 +292,21 @@ def main():
         display_positions["pnl_pct"] = display_positions["pnl_pct"].round(2)
         display_positions["max_profit_pct"] = display_positions["max_profit_pct"].round(2)
         
+        # Rename columns for better display
+        display_positions = display_positions.rename(columns={
+            "SYMBOL": "Symbol",
+            "entry_price": "Entry Price",
+            "current_price": "Current Price",
+            "qty": "Quantity",
+            "pnl_abs": "P&L (₹)",
+            "pnl_pct": "P&L %",
+            "max_profit_pct": "Max PnL %",
+            "is_open": "Open?",
+            "exit_reason": "Exit Reason",
+            "entry_time": "Entry Time",
+            "exit_time": "Exit Time"
+        })
+
         st.dataframe(display_positions, use_container_width=True)
     else:
         st.write("No positions yet.")
@@ -370,6 +385,8 @@ def main():
         display_trades["exit_price"] = display_trades["exit_price"].round(2)
         display_trades["pnl_pct"] = display_trades["pnl_pct"].round(2)
         display_trades["profit_abs"] = display_trades["profit_abs"].round(2)
+        if "max_profit_pct" in display_trades.columns:
+            display_trades["max_profit_pct"] = display_trades["max_profit_pct"].round(2)
         
         # Rename columns for better display
         display_trades = display_trades.rename(columns={
@@ -378,6 +395,7 @@ def main():
             "exit_price": "Exit Price",
             "qty": "Quantity",
             "pnl_pct": "P&L %",
+            "max_profit_pct": "Max PnL %",
             "profit_abs": "Profit (₹)",
             "exit_reason": "Exit Reason",
             "entry_time": "Entry Time",

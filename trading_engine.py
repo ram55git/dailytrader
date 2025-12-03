@@ -280,6 +280,13 @@ def update_trade(trade: dict):
     exit_time_str = trade["exit_time"]
     if isinstance(exit_time_str, datetime):
         exit_time_str = exit_time_str.strftime("%Y-%m-%d %H:%M:%S")
+    elif pd.isna(exit_time_str):
+        exit_time_str = None
+        
+    # Handle NaN for exit_price
+    exit_price = trade["exit_price"]
+    if pd.isna(exit_price):
+        exit_price = None
     
     cursor.execute("""
         UPDATE trades
@@ -290,7 +297,7 @@ def update_trade(trade: dict):
         trade["is_open"],
         trade["exit_reason"],
         exit_time_str,
-        trade["exit_price"],
+        exit_price,
         trade["pnl_pct"],
         trade["max_profit_pct"],
         trade["id"],
@@ -343,6 +350,7 @@ def get_trades_by_date(selected_date: str) -> pd.DataFrame:
             exit_price,
             qty,
             pnl_pct,
+            max_profit_pct,
             exit_reason,
             entry_time,
             exit_time,
@@ -504,7 +512,9 @@ def update_positions_and_apply_exits(positions: pd.DataFrame) -> Tuple[pd.DataFr
             pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"] * 100.0
             position_pnl = (current_price - pos["entry_price"]) * pos["qty"]
             
-            max_profit_pct = max(pos["max_profit_pct"], pnl_pct)
+            # Handle potential NaN/None in max_profit_pct from DB
+            current_max_profit = pos["max_profit_pct"] if pd.notna(pos["max_profit_pct"]) else 0.0
+            max_profit_pct = max(current_max_profit, pnl_pct)
             
             pos_dict = pos.to_dict()
             pos_dict.update({
@@ -524,19 +534,23 @@ def update_positions_and_apply_exits(positions: pd.DataFrame) -> Tuple[pd.DataFr
                 })
                 messages.append(f"🛑 Stop Loss: {pos['SYMBOL']} @ ₹{current_price:.2f}, P&L: {pnl_pct:.2f}%")
             
-            # Exit condition 2: Trailing stop - if profit drops 10% from peak
+            # Exit condition 2: Trailing stop - if profit drops 2% from peak
             elif max_profit_pct > 0 and (max_profit_pct - pnl_pct >= 2.0):
                 pos_dict.update({
                     "is_open": False,
-                    "exit_reason": "Trail 10% from peak",
+                    "exit_reason": "Trail 2% from peak",
                     "exit_time": now_ist(),
                     "exit_price": current_price
                 })
                 messages.append(f"📉 Trailing Stop: {pos['SYMBOL']} @ ₹{current_price:.2f}, Peak: {max_profit_pct:.2f}%, Current: {pnl_pct:.2f}%")
             
-            # Update database if position was closed
-            if not pos_dict["is_open"] and "id" in pos_dict and pos_dict["id"]:
-                update_trade(pos_dict)
+            # Update database if position was closed OR if max_profit_pct increased
+            if "id" in pos_dict and pos_dict["id"]:
+                if not pos_dict["is_open"]:
+                    update_trade(pos_dict)
+                elif max_profit_pct > current_max_profit:
+                    # Save new peak profit to DB so it persists across restarts/loops
+                    update_trade(pos_dict)
             
             rows.append(pos_dict)
         else:
